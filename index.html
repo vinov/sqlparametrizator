@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MSSQL Parametrizator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      padding: 20px 30px;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-family: 'Source Code Pro', monospace;
+      font-weight: 600;
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      margin-left: 20px;
+      color: #2c3e50;
+    }
+
+    .container {
+      display: flex;
+      gap: 30px;
+      flex: 1 1 auto;
+      min-height: 400px;
+      align-items: flex-start;
+    }
+
+    textarea, pre {
+      width: 100%;
+      font-family: 'Source Code Pro', monospace;
+      font-size: 0.8rem;
+      padding: 16px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      background: white;
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+      resize: vertical;
+      line-height: 1.2;
+      overflow: auto;
+      wrap:off;
+      min-height: 400px;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      margin-top: 31px;
+      min-height: 400px;
+      resize: vertical;
+    }
+
+    pre {
+      min-height: 400px;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top {
+      flex: 1;
+      display: inline;
+      flex-direction: row;
+    }
+
+    label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #34495e;
+    }
+
+    .copy-button {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      align-self: flex-end;
+      #font-size: 20px;
+      color: #55555;
+      transition: color 0.2s ease;
+    }
+
+    .copy-button:hover {
+      color: #1d4ed8;
+    }
+
+    footer {
+      text-align: center;
+      padding: 14px 0;
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+      }
+      textarea, pre {
+        min-height: 200px;
+      }
+    }
+
+    .flash {
+      animation: flashHighlight 0.5s ease;
+    }
+
+    @keyframes flashHighlight {
+      from { background-color: #fef3c7; }
+      to { background-color: white; }
+    }
+  </style>
+</head>
+<body>
+  <h1>SQL to sp_executesql</h1>
+  <div class="container">
+    <div class="pane">
+      <label for="combinedInput"></label>
+      <textarea id="combinedInput" placeholder="Paste SQL + log with parameters like this...&#10;&#10;select * from CUSTOMER c&#10;join ORDER o on o.CUSTOMER_ID = c.ID&#10;where o.DATE > ?&#10;and c.ZIP_CODE = ?&#10;&#10;16.05. 13:07:57.290 TRACE [default] org.hibernate.type.descriptor.sql.BasicBinder - binding parameter [1] as [TIMESTAMP] - [10]&#10;16.05. 13:07:57.290 TRACE [default] org.hibernate.type.descriptor.sql.BasicBinder - binding parameter [2] as [BIGINT] - [12345]"></textarea>
+    </div>
+    <div class="pane">
+      <div class="top">
+        <button class="copy-button" onclick="copyOutput()" title="Copy result" >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="icon-xl-heavy"><path fill-rule="evenodd" clip-rule="evenodd" d="M7 5C7 3.34315 8.34315 2 10 2H19C20.6569 2 22 3.34315 22 5V14C22 15.6569 20.6569 17 19 17H17V19C17 20.6569 15.6569 22 14 22H5C3.34315 22 2 20.6569 2 19V10C2 8.34315 3.34315 7 5 7H7V5ZM9 7H14C15.6569 7 17 8.34315 17 10V15H19C19.5523 15 20 14.5523 20 14V5C20 4.44772 19.5523 4 19 4H10C9.44772 4 9 4.44772 9 5V7ZM5 9C4.44772 9 4 9.44772 4 10V19C4 19.5523 4.44772 20 5 20H14C14.5523 20 15 19.5523 15 19V10C15 9.44772 14.5523 9 14 9H5Z" fill="currentColor"></path></svg>
+      </button>
+      </div>
+      <pre id="output" readonly>
+You will get this...
+
+EXEC sp_executesql N'select * from CUSTOMER c
+join ORDER o on o.CUSTOMER_ID = c.ID
+where o.DATE > @p1
+and c.ZIP_CODE = @p2',
+
+--parametr definitions
+N'@p1 DATETIME2,
+  @p2 BIGINT',
+
+--parametr values
+  N'10',
+  12345</pre>
+    </div>
+  </div>
+  <footer>© 2025 SQL Parametrizator</footer>
+
+  <script>
+    const inputEl = document.getElementById('combinedInput');
+    const outputEl = document.getElementById('output');
+
+    inputEl.addEventListener('input', generate);
+
+    function parseCombinedInput(text) {
+      const lines = text.split(/\r?\n/);
+      const sqlLines = [];
+      const logLines = [];
+      let inLog = false;
+
+      for (let line of lines) {
+        if (/binding parameter/.test(line)) {
+          inLog = true;
+        }
+        if (inLog) {
+          logLines.push(line);
+        } else {
+          sqlLines.push(line);
+        }
+      }
+
+      return {
+        sql: sqlLines.join('\n').trim(),
+        log: logLines.join('\n').trim()
+      };
+    }
+
+    function parseLog(logText) {
+      const regex = /binding parameter \[(\d+)] as \[(\w+)] - \[(.*?)\]/g;
+      const params = [];
+      let match;
+      while ((match = regex.exec(logText)) !== null) {
+        let [, index, type, value] = match;
+        value = value.replace(/'/g, "''");
+        params.push({ index: parseInt(index), type, value });
+      }
+      return params.sort((a, b) => a.index - b.index);
+    }
+
+    function mapSqlType(type) {
+      switch(type.toUpperCase()) {
+        case 'VARCHAR': return 'VARCHAR(MAX)';
+        case 'BIGINT': return 'BIGINT';
+        case 'INTEGER': return 'INT';
+        case 'BOOLEAN': return 'BIT';
+        case 'DATE': return 'DATE';
+        case 'TIMESTAMP': return 'DATETIME2';
+        case 'TIME': return 'TIME';
+        default: return 'VARCHAR(MAX)';
+      }
+    }
+
+    function generate() {
+      const input = inputEl.value;
+      const { sql, log } = parseCombinedInput(input);
+      const params = parseLog(log);
+
+      let newSql = sql;
+      let declarations = [];
+      let assignments = [];
+
+      params.forEach((p, i) => {
+        const name = `@p${i+1}`;
+        newSql = newSql.replace('?', name);
+        declarations.push(`${name} ${mapSqlType(p.type)}`);
+        let val;
+        if (p.type.toUpperCase() === 'BOOLEAN' || p.type.toUpperCase() === 'BIT') {
+          val = p.value.toLowerCase() === 'true' || p.value === '1' ? 1 : 0;
+        } else if (['VARCHAR', 'DATE', 'TIMESTAMP', 'TIME'].includes(p.type.toUpperCase())) {
+          val = `N'${p.value}'`;
+        } else {
+          val = p.value;
+        }
+        assignments.push(val);
+      });
+
+      const result = `EXEC sp_executesql N'${newSql.replace(/'/g, "''")}',\n\n--parametr definitions\nN'${declarations.join(',\n  ')}',\n\n--parametr values\n  ${assignments.join(',\n  ')}`;
+      outputEl.textContent = result;
+    }
+
+    function copyOutput() {
+      const text = outputEl.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        outputEl.classList.remove('flash');
+        void outputEl.offsetWidth; // reflow to restart animation
+        outputEl.classList.add('flash');
+      });
+    }
+  </script>
+</body>
+</html>
